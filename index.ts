@@ -8,6 +8,16 @@ const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   socketMode: true,
   appToken: process.env.SLACK_APP_TOKEN,
+  customRoutes: [
+    {
+      path: "/",
+      method: ["GET"],
+      handler: (req, res) => {
+        res.writeHead(200);
+        res.end("");
+      },
+    },
+  ],
 });
 
 const disabledUserIds: string[] = [];
@@ -142,6 +152,5 @@ app.event("message", async ({ message, client }) => {
     console.error(error);
   }
 });
-
 
 app.start(PORT);
