@@ -1,144 +1,147 @@
 import { App } from "@slack/bolt";
-import 'dotenv/config'
+import "dotenv/config";
 
+const PORT = process.env.PORT || 3000;
 
 const app = new App({
-    token: process.env.OAuthToken,
-    signingSecret: process.env.signingSecret,
-    socketMode:true,
-    appToken: process.env.appToken
+  token: process.env.SLACK_OAUTH_TOKEN,
+  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  socketMode: true,
+  appToken: process.env.SLACK_APP_TOKEN,
 });
 
-const disabledUserIds:string[]  = []
+const disabledUserIds: string[] = [];
 
-const defaultSupportHero = {slackName: "", timezone: ""}
-let supportHero = {...defaultSupportHero}
+const defaultSupportHero = { slackName: "", timezone: "" };
+let supportHero = { ...defaultSupportHero };
 
 /*
 params are username (ex @kevinoconnell42@gmail.com) and timezone (ex. America/New_York)
 @returns whispered message to user giving the name of the new support hero.
 */
-app.command("/sethero", async ({ command, ack,client }) => {
+app.command("/sethero", async ({ command, ack, client }) => {
   try {
-    ack()
-    const id: string = command.user_id
-    const commandParam = command.text.trim().split(" ")
-    if(commandParam.length !== 2) {
+    ack();
+    const id: string = command.user_id;
+    const commandParam = command.text.trim().split(" ");
+    if (commandParam.length !== 2) {
       const result = await client.chat.postEphemeral({
         channel: command.channel_id,
         user: id,
         text: `This command needs two parameters, one of which is the tagged Support Hero and the other is their timezone.`,
       });
-      return
+      return;
     }
-    const userInfo = await app.client.users.info({user: id})
-    if(!userInfo.user || !userInfo.user.is_admin) {
+    const userInfo = await app.client.users.info({ user: id });
+    if (!userInfo.user || !userInfo.user.is_admin) {
       const result = await client.chat.postEphemeral({
         channel: command.channel_id,
         user: id,
         text: "You do not have admin privileges ",
       });
-      return
+      return;
     }
-    if(commandParam[0].charAt(0) !== "@") {
+    if (commandParam[0].charAt(0) !== "@") {
       const result = await client.chat.postEphemeral({
         channel: command.channel_id,
         user: id,
         text: "The first parameter needs to be a tagged member in this workspace",
       });
-      return
+      return;
     }
-    supportHero = {slackName: `<${commandParam[0]}>`,timezone: commandParam[1] ? commandParam[1] : ""}
-  const result = await client.chat.postEphemeral({
-    channel: command.channel_id,
-    user: id,
-    text: `Support Hero is now ${supportHero.slackName} in ${supportHero.timezone}`,
-  });
+    supportHero = {
+      slackName: `<${commandParam[0]}>`,
+      timezone: commandParam[1] ? commandParam[1] : "",
+    };
+    const result = await client.chat.postEphemeral({
+      channel: command.channel_id,
+      user: id,
+      text: `Support Hero is now ${supportHero.slackName} in ${supportHero.timezone}`,
+    });
   } catch (error) {
-    console.log("err")
+    console.log("err");
     console.error(error);
   }
 });
 /*
 @returns whispered message telling user the bot is disabled for them or that it is already disabled.
 */
-app.command("/disable", async ({ command, ack,client }) => {
+app.command("/disable", async ({ command, ack, client }) => {
   try {
-
-    ack()
-    const id: string = command.user_id
-    let text = ""
-    if(disabledUserIds.includes(id)) {
-    text = "The bot is already disabled!"
-    }
-    else  {
-      disabledUserIds.push(id)
-      text = "The bot is now disabled!"
+    ack();
+    const id: string = command.user_id;
+    let text = "";
+    if (disabledUserIds.includes(id)) {
+      text = "The bot is already disabled!";
+    } else {
+      disabledUserIds.push(id);
+      text = "The bot is now disabled!";
     }
     const result = await client.chat.postEphemeral({
       channel: command.channel_id,
       user: id,
-      text
+      text,
     });
   } catch (error) {
-    console.log("err")
+    console.log("err");
     console.error(error);
   }
 });
 /*
 @returns whispered message telling user the bot is enabled for them or that it is already enabled.
 */
-app.command("/enable", async ({ command, ack,client}) => {
+app.command("/enable", async ({ command, ack, client }) => {
   try {
-    ack()
-    const id: string = command.user_id
-    let text = ""
-    const userIdIndex: number = disabledUserIds.findIndex((value) => value == id)
-    if(userIdIndex !== -1) {
-      disabledUserIds.splice(userIdIndex,1)
-      text= "The bot is now enabled!"
-    }
-    else {
-      text = "The bot is already enabled!"
+    ack();
+    const id: string = command.user_id;
+    let text = "";
+    const userIdIndex: number = disabledUserIds.findIndex(
+      (value) => value == id
+    );
+    if (userIdIndex !== -1) {
+      disabledUserIds.splice(userIdIndex, 1);
+      text = "The bot is now enabled!";
+    } else {
+      text = "The bot is already enabled!";
     }
     const result = await client.chat.postEphemeral({
       channel: command.channel_id,
       user: id,
-      text
+      text,
     });
   } catch (error) {
-    console.log("err")
+    console.log("err");
     console.error(error);
   }
 });
 /*
 listener for events that occur in channels the bot is in
 */
-app.event("message",async ({ message,client }) => {
+app.event("message", async ({ message, client }) => {
   // Getting weird type error
-  const finishedMessage = message as any
-    try {
-    if(JSON.stringify(supportHero) === JSON.stringify(defaultSupportHero)) {
-        const result = await client.chat.postEphemeral({
-          channel: message.channel,
-          user: finishedMessage.user,
-          text: "You're asking the community for help. We recommend checking <https://posthog.com/questions|our support site> to see if your question has already been asked. There's no Support Hero currently available.",
-        });
-        return
-      }
-    else if(!disabledUserIds.includes(finishedMessage.user)) {
-    const msg  = `You're asking the community for help. We recommend checking <https://posthog.com/questions|our support site> to see if your question has already been asked - but, if not, we'll respond <https://posthog.com/handbook/engineering/support-hero#prioritizing-requests|as quickly as we can>. Our Support Hero this week is ${supportHero.slackName}, based in ${supportHero.timezone}.`
-    const result = await client.chat.postEphemeral({
-      channel: message.channel,
-      user: finishedMessage.user,
-      text: msg,
-    });
-    console.log(result)
+  const finishedMessage = message as any;
+  try {
+    if (JSON.stringify(supportHero) === JSON.stringify(defaultSupportHero)) {
+      const result = await client.chat.postEphemeral({
+        channel: message.channel,
+        user: finishedMessage.user,
+        text: "You're asking the community for help. We recommend checking <https://posthog.com/questions|our support site> to see if your question has already been asked. There's no Support Hero currently available.",
+      });
+      return;
+    } else if (!disabledUserIds.includes(finishedMessage.user)) {
+      const msg = `You're asking the community for help. We recommend checking <https://posthog.com/questions|our support site> to see if your question has already been asked - but, if not, we'll respond <https://posthog.com/handbook/engineering/support-hero#prioritizing-requests|as quickly as we can>. Our Support Hero this week is ${supportHero.slackName}, based in ${supportHero.timezone}.`;
+      const result = await client.chat.postEphemeral({
+        channel: message.channel,
+        user: finishedMessage.user,
+        text: msg,
+      });
+      console.log(result);
+    }
+  } catch (error) {
+    console.log("err");
+    console.error(error);
   }
-    }
-    catch (error) {
-        console.log("err")
-        console.error(error);
-    }
-  });
-app.start(3000)
+});
+
+
+app.start(PORT);

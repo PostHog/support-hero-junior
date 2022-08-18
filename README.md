@@ -5,9 +5,9 @@
 ### Slack API setup
 
 - Create a Slack app at https://api.slack.com/apps
-- On the basic information tab, you will find your signing secret, which will be our signingSecret env variable
+- On the basic information tab, you will find your signing secret, which will be our SLACK_SIGNING_SECRET env variable
 - On the same tab, create a app-level token that has both authorizations:read and connections:write permissions, the token that results will be our appToken env variable.
-- Go to the OAuth and permissions tab and copy the "Bot User OAuth Token", place that token under the OAuthToken env variable
+- Go to the OAuth and permissions tab and copy the "Bot User OAuth Token", place that token under the SLACK_OAUTH_TOKEN env variable
 - Go to the Slash commands tab and create three commands: /disable, /enable and /sethero. Set the description for each to whatever is wanted
 - Click on Socket Mode and enable the slider next to "Enable Socket Mode"
 - Go to the Install App tab and click "Reinstall to Workspace" to add the bot to the workspace
