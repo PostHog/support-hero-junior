@@ -1,13 +1,21 @@
-import { App } from "@slack/bolt";
+import { AllMiddlewareArgs, App, SlashCommand } from "@slack/bolt";
+import axios from "axios";
 import "dotenv/config";
 
 const PORT = process.env.PORT || 3000;
+const {
+  SLACK_OAUTH_TOKEN,
+  SLACK_SIGNING_SECRET,
+  SLACK_APP_TOKEN,
+  PAGERDUTY_API_TOKEN,
+  PAGERDUTY_SUPPORT_HERO_SCHEDULE_ID = "PPLGE4G",
+} = process.env;
 
 const app = new App({
-  token: process.env.SLACK_OAUTH_TOKEN,
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  token: SLACK_OAUTH_TOKEN,
+  signingSecret: SLACK_SIGNING_SECRET,
   socketMode: true,
-  appToken: process.env.SLACK_APP_TOKEN,
+  appToken: SLACK_APP_TOKEN,
   customRoutes: [
     {
       path: "/",
@@ -29,45 +37,42 @@ let supportHero = { ...defaultSupportHero };
 params are username (ex @kevinoconnell42@gmail.com) and timezone (ex. America/New_York)
 @returns whispered message to user giving the name of the new support hero.
 */
-app.command("/sethero", async ({ command, ack, client }) => {
+
+const cmdSupportHero = async (
+  command: SlashCommand,
+  client: AllMiddlewareArgs["client"]
+) => {
+  const res = await axios.get(
+    `https://api.pagerduty.com/schedules/${PAGERDUTY_SUPPORT_HERO_SCHEDULE_ID}/users`,
+    {
+      headers: {
+        Authorization: `${PAGERDUTY_API_TOKEN}`,
+      },
+    }
+  );
+
+  console.log(res.data);
+
+  const id: string = command.user_id;
+  const commandParam = command.text.trim().split(" ");
+
+  let supportHero = {
+    slackName: `<${commandParam[0]}>`,
+    timezone: commandParam[1] ? commandParam[1] : "",
+  };
+
+  await client.chat.postEphemeral({
+    channel: command.channel_id,
+    user: id,
+    text: `Support Hero is now ${supportHero.slackName} in ${supportHero.timezone}`,
+  });
+};
+
+app.command("/supporthero", async ({ command, ack, client }) => {
   try {
     ack();
-    const id: string = command.user_id;
-    const commandParam = command.text.trim().split(" ");
-    if (commandParam.length !== 2) {
-      const result = await client.chat.postEphemeral({
-        channel: command.channel_id,
-        user: id,
-        text: `This command needs two parameters, one of which is the tagged Support Hero and the other is their timezone.`,
-      });
-      return;
-    }
-    const userInfo = await app.client.users.info({ user: id });
-    if (!userInfo.user || !userInfo.user.is_admin) {
-      const result = await client.chat.postEphemeral({
-        channel: command.channel_id,
-        user: id,
-        text: "You do not have admin privileges ",
-      });
-      return;
-    }
-    if (commandParam[0].charAt(0) !== "@") {
-      const result = await client.chat.postEphemeral({
-        channel: command.channel_id,
-        user: id,
-        text: "The first parameter needs to be a tagged member in this workspace",
-      });
-      return;
-    }
-    supportHero = {
-      slackName: `<${commandParam[0]}>`,
-      timezone: commandParam[1] ? commandParam[1] : "",
-    };
-    const result = await client.chat.postEphemeral({
-      channel: command.channel_id,
-      user: id,
-      text: `Support Hero is now ${supportHero.slackName} in ${supportHero.timezone}`,
-    });
+
+    await cmdSupportHero(command, client);
   } catch (error) {
     console.log("err");
     console.error(error);
